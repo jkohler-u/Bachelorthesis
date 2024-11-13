@@ -1,0 +1,151 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+install.packages("plyr")
+```
+
+```{r}
+library(ggplot2)
+library(plyr)
+library(Rmisc)
+library(ordinal)
+library(dplyr)
+library(grid)
+library(gridExtra)
+```
+
+```{r}
+process_data <- function(data) {
+      # Convert columns to factors
+      data$complexity <- factor(data$complexity)
+      data$polarity <- factor(data$polarity)
+      data$item<-factor(data$item)
+        
+      # Convert 'value' column to numeric, coercing non-numeric values to NA
+      data$value <- as.numeric(as.character(data$value))
+
+      # Filter out NA values from 'value' column
+      data <- data %>% filter(data$value != "NA")
+  
+      # Exclude filler trials 
+      data <- data %>% filter(data$complexity == "Morph"| data$complexity == "Nonmorph")
+      # For Chatbot trials remove manually expluged trials
+      if ("marker" %in% colnames(data)) {
+      data<- data%>% filter(data$marker != "off")
+      # compare the effect of excluding the vague trials 
+      #data<- data%>% filter(data$marker != "vague")
+      }
+
+      # Summarize data
+      critindc <- summarySE(data, measurevar = "value", groupvars = c("polarity"), na.rm = TRUE)
+      critindnc <- summarySE(data, measurevar = "value", groupvars = c("polarity", "complexity"), na.rm = TRUE)
+      
+      return(list(critindc = critindc, critindnc = critindnc, data = data))
+}
+```
+
+```{r}
+# load and prep data
+all_data_human<-read.delim("codedone/facethreat_anonymous.txt",header=T, dec=",")
+all_data_chatbot_June<-read.delim("codedone/responsesJune.txt",header=T, dec=",")
+all_data_chatbot_July<-read.delim("codedone/responsesJuly.txt",header=T, dec=",")
+
+data_human<-process_data(all_data_human)
+data_chatbot_June<-process_data(all_data_chatbot_June)
+data_chatbot_July <-process_data(all_data_chatbot_July)
+```
+
+
+```{r}
+# combine the data into a single dataset
+data_human$critindc$dataset <- 'human'
+data_chatbot_June$critindc$dataset <- 'chatbot_June'
+data_chatbot_July$critindc$dataset <- 'chatbot_July'
+all <- bind_rows(data_human$critindc, data_chatbot_July$critindc,data_chatbot_June$critindc)
+
+#plot displaying polarity by dataset
+ggplot(data=all, aes(x=dataset, y=value, fill=interaction(polarity, dataset))) + 
+  geom_bar(stat="identity", position=position_dodge()) +
+  labs(y = "Negative Strengthening", x = "Polarity") +
+  theme(text = element_text(size=20)) +
+  geom_errorbar(aes(ymin=value-se, ymax=value+se), width=.2, position=position_dodge(.9)) +
+  coord_cartesian(ylim = c(4.5, 7)) +
+  scale_fill_manual(name="Polarity",values = c("#f54842",  "#009dd6", "#f58d42", "#226ff3", "#f658bc", "#12deca" ) )
+
+```
+
+```{r}
+# combine the data into a single dataset
+data_human$critindnc$dataset <- 'human'
+data_chatbot_June$critindnc$dataset <- 'chatbot_June'
+data_chatbot_July$critindnc$dataset <- 'chatbot_July'
+all_complex <- bind_rows(data_human$critindnc, data_chatbot_July$critindnc,data_chatbot_June$critindnc)
+
+#plot displaying complexityxpolarity per dataset
+ggplot(data=all_complex, aes(x=interaction(complexity, dataset), y=value, fill=interaction(polarity, dataset))) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  labs(y = "Negative Strengthening", x = "Dataset and Complexity") +  
+   theme(
+    text = element_text(size=20),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.margin = margin(1, 1, 1, 1, "cm") ) +
+  coord_cartesian(ylim = c(4.5, 7)) +
+  geom_errorbar(aes(ymin=value-se, ymax=value+se),
+                width=.2, position=position_dodge(.9)) +
+  coord_cartesian(ylim = c(4.5, 7)) +
+  scale_fill_manual(name="Polarity",values = c("#f54842",  "#009dd6", "#f58d42", "#226ff3", "#f658bc", "#12deca" ) )
+
+```
+```{r}
+process_data_model <- function(data) {
+
+  data$valuef<-factor(data$value)
+  contrasts(data$polarity) <- "contr.sum"
+  contrasts(data$complexity) <- "contr.sum"
+  return(data = data)
+
+}
+```
+
+```{r}
+#process data for modeling 
+m_data_human<-process_data_model(data_human$data)
+m_data_chatbot_June<-process_data_model(data_chatbot_June$data)
+m_data_chatbot_July<-process_data_model(data_chatbot_July$data)
+
+```
+
+```{r}
+# Fit the polarity model
+m1 <- clmm(valuef ~ polarity + (1 | item) + (1 | Worker_ID), data = m_data_human)
+
+# Capture the summary as a character vector
+summary_text <- capture.output(summary(m1))
+print(summary_text)
+# Convert the text to a grob (graphical object)
+text_grob <- grid.text(paste(summary_text, collapse = "\n"), x = 0.5, y = 0.5, just = "center", gp = gpar(fontsize = 10))
+
+# Save as an image
+png("model_human.png", width = 800, height = 800)
+grid.draw(text_grob)
+dev.off()
+
+```
+
+```{r}
+# Fit the polarity model
+m3<-clmm(valuef~polarity*complexity+ (1|item) + (1|Worker_ID) , data =m_data_chatbot_July)
+
+# Capture the summary as a character vector
+summary_text <- capture.output(summary(m3))
+print(summary_text)
+# Convert the text to a grob (graphical object)
+text_grob <- grid.text(paste(summary_text, collapse = "\n"), x = 0.5, y = 0.5, just = "center", gp = gpar(fontsize = 10))
+
+# Save as an image
+png("model_complexity_July.png", width = 800, height = 800)
+grid.draw(text_grob)
+dev.off()
+```
