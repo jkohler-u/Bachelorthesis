@@ -5,3 +5,7 @@ Conducting the experiment. Asks the questions from the question .csv in random o
 
 ### extract_nr.py
 After manual review, removes all non-numerical content from the responses.
+
+
+### based_on_original_experiment.Rmd
+Replicates the statistical evaluation of the original paper
