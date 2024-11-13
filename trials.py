@@ -8,7 +8,7 @@ import numpy as np
 openai.api_key =  'filler'   # Replace this with your OpenAI API key
 number_of_participants = 60 
 trials_per_participant = 30 #should be even so there can be 50/50 on polarity 
-file_path_questions = 'experimentformatedqsandfiller.csv' # must have a column with the header "question"
+file_path_questions = 'items.csv' # must have a column with the header "question"
 file_path_answer = 'responses.csv'
 
 
