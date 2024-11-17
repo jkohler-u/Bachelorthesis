@@ -48,9 +48,9 @@ process_data <- function(data) {
 
 ```{r}
 # load and prep data
-all_data_human<-read.delim("codedone/facethreat_anonymous.txt",header=T, dec=",")
-all_data_chatbot_June<-read.delim("codedone/responsesJune.txt",header=T, dec=",")
-all_data_chatbot_July<-read.delim("codedone/responsesJuly.txt",header=T, dec=",")
+all_data_human<-read.delim("facethreat_anonymous.txt",header=T, dec=",")
+all_data_chatbot_June<-read.delim("responsesJune.txt",header=T, dec=",")
+all_data_chatbot_July<-read.delim("responsesJuly.txt",header=T, dec=",")
 
 data_human<-process_data(all_data_human)
 data_chatbot_June<-process_data(all_data_chatbot_June)
