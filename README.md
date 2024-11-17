@@ -12,3 +12,6 @@ Replicates the statistical evaluation of the original paper - uses the responses
 
 ### fillertrials.Rmd
 Analysis of the fillertrials
+
+### marked_trials.Rmd
+Analysis on the manual evaluations
