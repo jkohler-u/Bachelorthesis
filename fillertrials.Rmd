@@ -1,0 +1,85 @@
+
+```{r}
+library(ggplot2)
+library(plyr)
+library(Rmisc)
+library(ordinal)
+library(dplyr)
+```
+
+```{r}
+process_data <- function(data) {
+      # Convert columns to factors
+      data$complexity <- factor(data$complexity)
+      data$polarity <- factor(data$polarity)
+      data$item<-factor(data$item)
+        
+      # Convert 'value' column to numeric, coercing non-numeric values to NA
+      data$value <- as.numeric(as.character(data$value))
+      # Filter out NA values from 'value' column
+      data <- data %>% filter(data$value != "NA")
+      
+      # Filter for specific complexities
+      data <- data %>% filter(data$complexity == "testaverage" | data$complexity == "testrating")
+      
+      return(list(data = data))
+}
+```
+
+```{r}
+#load
+all_data_chatbot_June<-read.delim("responsesJuly.txt",header=T, dec=",")
+all_data_chatbot_July<-read.delim("responsesJune.txt",header=T, dec=",")
+
+#preprocess
+data_chatbot_June<-process_data(all_data_chatbot_June)
+data_chatbot_July<-process_data(all_data_chatbot_July)
+
+#combine chatbot datasets
+data_chatbot_June$data$dataset <- 'chatbot_June'
+data_chatbot_July$data$dataset <- 'chatbot_July'
+june <- data_chatbot_June$data %>%select(marker, complexity, value, polarity, variable, item, dataset) 
+july <- data_chatbot_July$data %>%select(marker, complexity, value, polarity, variable, item, dataset) 
+chatbot_data <- bind_rows(june, july)
+
+#seperate by fillertrial
+data_edge <- chatbot_data %>% filter(chatbot_data$complexity == "testrating")
+data_average <- chatbot_data %>% filter(chatbot_data$complexity == "testaverage")
+```
+
+```{r}
+# remove the marker vague 
+data_edge$marker[data_edge$marker == "vague"] <- ""
+data_average$marker[data_average$marker == "vague"] <- ""
+
+#plot the value-marker distribution for the average filler trial case, 
+ggplot(data = data_average, aes(x = value, fill = marker)) +  
+  geom_bar() +  
+  labs(x = "Value", y = "Count") +
+  theme(text = element_text(size = 35)) +
+  coord_cartesian(xlim = c(1, 7)) +
+  scale_fill_manual(name = "Marker", labels = c("normal", "off"), values = c("#12deca", "#f54842"))+
+  scale_x_continuous(breaks = 1:7)  
+
+```
+
+```{r}
+#distribution values in the edge-trial by polaritiy and vlalue
+table(data_edge$value,data_edge$polarity)
+```
+
+```{r}
+#distribution of markes in the fillertrials across the two datasets
+table(chatbot_data$marker, chatbot_data$dataset)
+```
+
+```{r}
+#show the distribution of items for the edge-fillertrial case where the value is > 3.5
+edge <- data_edge  %>% filter(data_edge$value > 3.5)
+table(edge$item)
+```
+
+```{r}
+#show the distribution of items for the average-fillertrial case split by marker
+table(data_average$value, data_average$marker)
+```
