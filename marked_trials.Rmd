@@ -1,0 +1,79 @@
+```{r}
+install.packages("plyr")
+```
+
+```{r}
+library(ggplot2)
+library(plyr)
+library(Rmisc)
+library(ordinal)
+library(dplyr)
+```
+
+```{r}
+process_data <- function(data) {
+      # Convert columns to factors
+      data$complexity <- factor(data$complexity)
+      data$polarity <- factor(data$polarity)
+      data$item<-factor(data$item)
+        
+      # Convert 'value' column to numeric, coercing non-numeric values to NA
+      data$value <- as.numeric(as.character(data$value))
+      
+      # Filter for specific complexities
+      data <- data %>% filter(data$marker != "")
+      
+      
+      return(list(data = data))
+}
+```
+
+```{r}
+#load
+all_data_chatbot_June<-read.delim("codedone/responsesJune.txt",header=T, dec=",")
+all_data_chatbot_July<-read.delim("codedone/responsesJuly.txt",header=T, dec=",")
+
+#preprocess
+data_chatbot_June<-process_data(all_data_chatbot_June)
+data_chatbot_July<-process_data(all_data_chatbot_July)
+
+#combine chatbot datasets
+data_chatbot_June$data$dataset <- 'chatbot_June'
+data_chatbot_July$data$dataset <- 'chatbot_July'
+june <- data_chatbot_June$data %>%select(marker, complexity, value, polarity, variable, item, dataset) 
+july <- data_chatbot_July$data %>%select(marker, complexity, value, polarity, variable, item, dataset) 
+chatbot_data <- bind_rows(june, july)
+
+
+```
+```{r}
+#items without useful responses
+not_usable <- chatbot_data %>% group_by(dataset,  complexity, marker) %>% filter(is.na(value))%>% summarise(count = n())%>%  ungroup()
+not_usable
+```
+```{r}
+#items where the number chosen and the verbal response doesn't match
+off <- chatbot_data %>% group_by(dataset, ) %>% filter(marker == "off")%>% summarise(count = n())%>%  ungroup()
+off
+
+```
+```{r}
+overview <- chatbot_data%>% group_by(dataset, complexity, marker) %>% summarise(count = n()) %>%
+  ungroup()
+  # Print all rows
+print(overview, n = Inf)
+```
+```{r}
+vague <- chatbot_data %>% group_by(dataset, ) %>% filter(marker == "vague")%>% summarise(count = n())%>%  ungroup()
+vague
+```
+```{r}
+chatbot_data_off <- chatbot_data %>% filter(chatbot_data$marker == "off")
+
+# plot vlaues distributon by marker
+ggplot(data = chatbot_data_off, aes(x = value, fill = complexity)) +
+  geom_bar() +
+  labs(x = "Value", y = "Count of Value") +
+  theme(text = element_text(size = 20)) 
+```
+
