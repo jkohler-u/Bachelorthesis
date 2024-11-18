@@ -1,0 +1,167 @@
+```{r}
+library(ggplot2)
+library(plyr)
+library(Rmisc)
+library(ordinal)
+library(dplyr)
+```
+
+```{r}
+library(tidyr)
+```
+```{r}
+process_data <- function(data) {
+      # Convert columns to factors
+      data$complexity <- factor(data$complexity)
+      data$polarity <- factor(data$polarity)
+      data$item<-factor(data$item)
+        
+      # Convert 'value' column to numeric, coercing non-numeric values to NA
+      data$value <- as.numeric(as.character(data$value))
+      # Filter out NA values from 'value' column
+      data <- data %>% filter(data$value != "NA")
+
+      #exclude marked trials
+      if ("marker" %in% colnames(data)) {
+      data <- data %>% filter(data$marker != "off")}
+
+      #exclude filler trials
+      data <- data %>% filter(data$complexity == "Morph" | data$complexity == "Nonmorph")
+      
+      return(list(data = data))
+}
+```
+
+```{r}
+all_data_human<-read.delim("codedone/facethreat_anonymous.txt",header=T, dec=",")
+all_data_chatbot_June<-read.delim("codedone/responsesJune.txt",header=T, dec=",")
+all_data_chatbot_July<-read.delim("codedone/responsesJuly.txt",header=T, dec=",")
+
+data_human<-process_data(all_data_human)
+data_chatbot_June<-process_data(all_data_chatbot_June)
+data_chatbot_July<-process_data(all_data_chatbot_July)
+```
+
+
+```{r}
+data_human$data$dataset <- 'human'
+data_chatbot_June$data$dataset <- 'chatbot_June'
+data_chatbot_July$data$dataset <- 'chatbot_July'
+
+data1 <- data_human$data %>%
+  select(complexity, value, polarity, item, variable, dataset) 
+
+data2 <- data_chatbot_June$data %>%
+  select(complexity, value, polarity,item,variable,  dataset) 
+
+data3 <- data_chatbot_July$data %>%
+  select(complexity, value, polarity, item,variable, dataset)
+
+# Combine the datasets into one
+combined_data <- bind_rows(data1, data2, data3)
+chatbot_data <- bind_rows(data_chatbot_July$data, data_chatbot_June$data)
+```
+
+```{r}
+#Calculate the overall variance
+overall_variance <- var(data_human$data$value, na.rm = TRUE)
+overall_variance
+
+#Calculate the variance within each worker_id
+variance_within <- data_human$data %>%
+  group_by(Worker_ID) %>%
+  summarize(within_variance = var(value, na.rm = TRUE))
+
+#Compare the variance of each group with the overall variance 
+average_within_variance <- mean(variance_within$within_variance, na.rm = TRUE)
+average_within_variance
+
+```
+
+
+
+```{r}
+# Calculate the item which correlate most to the human data
+item_correlations <- combined_data %>%
+  group_by(item) %>%
+  summarize(
+    correlation = {
+      human_values <- value[dataset == "human"]
+      computer_values <- value[dataset == "chatbot_July"]
+      # Pair the data by indices that exist in both groups
+      min_length <- min(length(human_values), length(computer_values))
+      if (min_length > 0) {
+        cor(human_values[1:min_length], computer_values[1:min_length], use = "complete.obs")
+      } else {
+        NA 
+      }
+    }
+  )
+
+# View the items with the highest correlations (most similar)
+item_correlations <- item_correlations %>%
+  arrange(desc(correlation))
+
+print(item_correlations, n = Inf)
+```
+```{r}
+# calculate simpler trials correlate closer to the human data
+
+references_df <- data.frame(
+item = c("Certain_Uncertain", "Lucky_Unlucky", "Accurate_Inaccurate", 
+           "Happy_Unhappy", "Fair_Unfair", "Useful_Useless", 
+           "Strong_Weak", "Tall_Short", "Long_Short", 
+           "Rich_Poor", "Happy_Sad", "Good_Bad", 
+           "Kind_Mean", "Polite_Rude", "Satisfactory_Frustrating", 
+           "Interesting_Uninteresting", "Polite_Impolite", 
+           "Satisfactory_Unsatisfactory", "Friendly_Unfriendly", 
+           "Possible_Impossible"),
+references = c(2, 2, 2, 2, 2, 2,  # amount of speakers per item
+                 2, 2, 2, 2, 2, 
+                 3, 3, 3, 3, 3, 
+                 3, 3, 3, 4))
+                 
+data <- right_join(references_df, item_correlations, by = "item")
+data$item <- factor(data$item, levels = data$item[order(data$correlation, decreasing = TRUE)])
+print(data)
+# person correlation between the refernces and the level of correlation to the human data
+per_corr <- cor.test(data$references, data$correlation, method = "pearson")
+per_corr
+```
+```{r}
+#for morphological adjective pairs are the responses closer to humans for the positive variant
+data_morph <- combined_data %>% filter(combined_data$complexity == "Morph")
+
+# Step 1: calculate the correlations between the human and chatbot data per item
+item_correlations <- data_morph %>%
+  group_by(variable, polarity) %>%
+  summarize(
+    correlation = {
+      human_values <- value[dataset == "human"]
+      computer_values <- value[dataset == "chatbot_July"]
+      # Pair the data by indices that exist in both groups
+      min_length <- min(length(human_values), length(computer_values))
+      if (min_length > 0) {
+        cor(human_values[1:min_length], computer_values[1:min_length], use = "complete.obs")
+      } else {
+        NA  # Return NA if there's no data to compare
+      }
+    }
+  )
+# View the items with the highest correlations (most similar)
+item_correlations <- item_correlations %>%
+  arrange(desc(correlation))
+print(item_correlations, n = Inf)
+
+#Convert the polarity variable to numeric (Pos = 1 and Neg = -1)
+item_correlations$polarity_numeric <- ifelse(item_correlations$polarity == "Pos", 1, -1)
+
+#Calculate the correlation
+correlation_result <- cor.test(item_correlations$polarity_numeric, item_correlations$correlation)
+correlation_result
+
+```
+
+
+
+
