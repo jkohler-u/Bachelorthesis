@@ -8,6 +8,13 @@ Conducting the experiment. Asks the questions from the question .csv in random o
 #### extract_nr.py
 After manual review, remove all non-numerical content from the responses.
 
+## Data
+June: responsesJune.txt
+
+July: responsesJuly.txt
+
+human: facetheat_anonnymous.txt
+
 
 ## Analysis
 ### based_on_original_experiment.Rmd
